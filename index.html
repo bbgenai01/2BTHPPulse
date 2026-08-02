@@ -12,11 +12,11 @@
   :root{
     --paper:#F3EFEC; --card:#FFFFFF; --line:#E1D8D3;
     --ink:#241512; --soft:#7A6B65;
-    --brand:#84121A; --brand-dark:#5A0C11;
+    --brand:#900603; --brand-dark:#6B0402; --brand-active:#6B1613;
     --terra:#C9722E; --ochre:#D6A24A; --slate:#5B7B93; --plum:#8B5E83; --neutral:#8A8079;
     --red:#C1443A; --red-soft:#F6E3E1;
     --green:#2F8F5B; --green-soft:#E4F0E8;
-    --sidebar:#230608;
+    --sidebar:#900603;
     font-family:'Inter',ui-sans-serif,system-ui,sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0;}
@@ -40,21 +40,21 @@
   .stamp h1{font-family:'Fraunces',serif;font-size:16px;font-weight:600;color:#F6EDEB;letter-spacing:.01em;line-height:1.25;}
   .stamp p{font-size:10.5px;color:#C79C97;margin-top:1px;}
 
-  .groupFilterWrap{padding:10px 0;border-top:1px solid #481115;border-bottom:1px solid #481115;}
-  .groupFilterWrap label{font-size:10px;color:#C79C97;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:6px;}
+  .groupFilterWrap{padding:10px 0;border-top:1px solid rgba(255,255,255,.2);border-bottom:1px solid rgba(255,255,255,.2);}
+  .groupFilterWrap label{font-size:10px;color:#F7CDC9;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:6px;}
   .groupFilterWrap select{
-    width:100%;background:#3A0E12;color:#F6EDEB;border:1px solid #5A1B1F;border-radius:6px;padding:7px 8px;font-size:12.5px;
+    width:100%;background:rgba(0,0,0,.28);color:#FFF3F1;border:1px solid rgba(255,255,255,.32);border-radius:6px;padding:7px 8px;font-size:12.5px;
   }
 
   nav{display:flex;flex-direction:column;gap:2px;}
   nav button{
-    all:unset;cursor:pointer;padding:9px 12px;border-radius:7px;font-size:13px;color:#D3B7B3;
+    all:unset;cursor:pointer;padding:9px 12px;border-radius:7px;font-size:13px;color:#FFE1DD;
     font-weight:500;transition:background .15s,color .15s;
   }
-  nav button:hover{background:#3E1013;color:#F6EDEB;}
-  nav button.active{background:var(--brand);color:#fff;}
-  .sidebar-foot{margin-top:auto;font-size:10.5px;color:#B3908B;line-height:1.6;border-top:1px solid #481115;padding-top:14px;}
-  .sidebar-foot .live{display:flex;align-items:center;gap:6px;margin-bottom:8px;color:#E39790;font-weight:600;font-size:11.5px;}
+  nav button:hover{background:rgba(255,255,255,.14);color:#fff;}
+  nav button.active{background:var(--brand-active);color:#fff;}
+  .sidebar-foot{margin-top:auto;font-size:10.5px;color:#F7CDC9;line-height:1.6;border-top:1px solid rgba(255,255,255,.2);padding-top:14px;}
+  .sidebar-foot .live{display:flex;align-items:center;gap:6px;margin-bottom:8px;color:#FFD9D5;font-weight:600;font-size:11.5px;}
   .pulse{width:6px;height:6px;border-radius:50%;background:#E39790;animation:pulse 1.8s infinite;}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(227,151,144,.55)}70%{box-shadow:0 0 0 6px rgba(227,151,144,0)}100%{box-shadow:0 0 0 0 rgba(227,151,144,0)}}
 
@@ -130,6 +130,11 @@
   .settingsRow select, .settingsRow input{
     border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12.5px;font-family:inherit;background:var(--paper);
   }
+  .editName{width:150px;background:#FFFDF9;border-style:dashed;}
+  .editName:hover{border-color:var(--brand);}
+  .editName:focus{outline:none;border-color:var(--brand);border-style:solid;background:#fff;}
+  .delBtn{background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px 9px;cursor:pointer;font-size:12px;line-height:1;}
+  .delBtn:hover{background:var(--red-soft);border-color:var(--red);}
   .addForm{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);}
   .addForm input, .addForm select{border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-size:12.5px;font-family:inherit;}
   .btnBrand{background:var(--brand);color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;}
@@ -605,22 +610,71 @@ function renderSettings(){
   const el = document.getElementById('settingsShopList');
   el.innerHTML = shops.map((x,i) => `
     <div class="settingsRow">
-      <span><span class="tab" style="background:${CATEGORY_COLORS[x.category]||CATEGORY_COLORS.Other}"></span>${x.name}
-        <span class="platpill ${x.platform==='shopee'?'p-shopee':'p-tiktok'}" style="margin-left:6px">${x.platform==='shopee'?'Shopee':'TikTok'}</span></span>
-      <select onchange="setShopGroup(${i}, this.value)">
-        ${GROUPS.map(g => `<option value="${g}" ${g===x.group?'selected':''}>${g}</option>`).join('')}
-      </select>
+      <span style="display:flex;align-items:center;gap:8px">
+        <span class="tab" style="background:${CATEGORY_COLORS[x.category]||CATEGORY_COLORS.Other}"></span>
+        <input class="editName" value="${x.name}" onchange="renameShop(${i}, this.value)" onkeydown="if(event.key==='Enter'){this.blur();}">
+        <span class="platpill ${x.platform==='shopee'?'p-shopee':'p-tiktok'}">${x.platform==='shopee'?'Shopee':'TikTok'}</span>
+      </span>
+      <span style="display:flex;align-items:center;gap:8px">
+        <select onchange="setShopGroup(${i}, this.value)">
+          ${GROUPS.map(g => `<option value="${g}" ${g===x.group?'selected':''}>${g}</option>`).join('')}
+        </select>
+        <button class="delBtn" onclick="deleteShop(${i})" title="ลบร้านนี้">🗑</button>
+      </span>
     </div>
   `).join('');
 
   const gl = document.getElementById('groupList');
   gl.innerHTML = GROUPS.map(g => `
-    <div class="settingsRow"><span>${g}</span><span class="grouppill">${shops.filter(s=>s.group===g).length} ร้าน</span></div>
+    <div class="settingsRow">
+      <input class="editName" value="${g}" onchange="renameGroup('${g}', this.value)" onkeydown="if(event.key==='Enter'){this.blur();}">
+      <span style="display:flex;align-items:center;gap:8px">
+        <span class="grouppill">${shops.filter(s=>s.group===g).length} ร้าน</span>
+        <button class="delBtn" onclick="deleteGroup('${g}')" title="ลบกลุ่มนี้">🗑</button>
+      </span>
+    </div>
   `).join('');
+}
+
+function renameGroup(oldName, newName){
+  newName = newName.trim();
+  if (!newName || newName === oldName) { render(); return; }
+  if (GROUPS.includes(newName)) { alert('มีกลุ่มชื่อนี้อยู่แล้ว'); render(); return; }
+  GROUPS = GROUPS.map(g => g === oldName ? newName : g);
+  shops.forEach(s => { if (s.group === oldName) s.group = newName; });
+  if (currentGroupFilter === oldName) currentGroupFilter = newName;
+  render();
 }
 
 function setShopGroup(idx, group){
   shops[idx].group = group;
+  render();
+}
+
+function renameShop(idx, name){
+  name = name.trim();
+  if (!name) { render(); return; }
+  shops[idx].name = name;
+  render();
+}
+
+function deleteShop(idx){
+  if (!confirm('ลบร้าน "' + shops[idx].name + '" ออกจากรายการนี้ใช่ไหม?')) return;
+  shops.splice(idx, 1);
+  render();
+}
+
+function deleteGroup(name){
+  if (shops.some(s => s.group === name)){
+    alert('กลุ่ม "' + name + '" ยังมีร้านค้าสังกัดอยู่ ย้ายร้านออกจากกลุ่มนี้ก่อนถึงจะลบได้');
+    return;
+  }
+  if (GROUPS.length <= 1){
+    alert('ต้องมีอย่างน้อย 1 กลุ่มเสมอ');
+    return;
+  }
+  GROUPS = GROUPS.filter(g => g !== name);
+  if (currentGroupFilter === name) currentGroupFilter = 'all';
   render();
 }
 
@@ -666,8 +720,8 @@ function renderChart(){
       labels: TREND_LABELS,
       datasets: [{
         label: 'GMV รวม (บาท)', data: TREND_DATA,
-        borderColor: '#84121A', backgroundColor: 'rgba(132,18,26,0.10)',
-        borderWidth: 2.5, tension: 0.35, fill: true, pointRadius: 3, pointBackgroundColor: '#84121A',
+        borderColor: '#900603', backgroundColor: 'rgba(144,6,3,0.10)',
+        borderWidth: 2.5, tension: 0.35, fill: true, pointRadius: 3, pointBackgroundColor: '#900603',
       }]
     },
     options: {
