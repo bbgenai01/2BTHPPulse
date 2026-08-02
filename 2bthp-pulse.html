@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2BTHP Pulse — Operations Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root{
+    --paper:#F3EFEC; --card:#FFFFFF; --line:#E1D8D3;
+    --ink:#241512; --soft:#7A6B65;
+    --brand:#84121A; --brand-dark:#5A0C11;
+    --terra:#C9722E; --ochre:#D6A24A; --slate:#5B7B93; --plum:#8B5E83; --neutral:#8A8079;
+    --red:#C1443A; --red-soft:#F6E3E1;
+    --green:#2F8F5B; --green-soft:#E4F0E8;
+    --sidebar:#230608;
+    font-family:'Inter',ui-sans-serif,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--paper);color:var(--ink);}
+  .serif{font-family:'Fraunces',serif;}
+  .mono{font-family:'IBM Plex Mono',ui-monospace,monospace;}
+
+  #app{display:flex;min-height:100vh;}
+
+  /* ---------- Sidebar ---------- */
+  #sidebar{
+    width:230px;flex:none;background:var(--sidebar);color:#E6D6D2;
+    padding:24px 18px;display:flex;flex-direction:column;gap:22px;
+  }
+  .stamp{display:flex;align-items:center;gap:10px;}
+  .logoBadge{
+    width:42px;height:42px;border-radius:9px;background:#fff;flex:none;
+    display:flex;align-items:center;justify-content:center;padding:5px;
+  }
+  .logoBadge img{width:100%;height:100%;object-fit:contain;}
+  .stamp h1{font-family:'Fraunces',serif;font-size:16px;font-weight:600;color:#F6EDEB;letter-spacing:.01em;line-height:1.25;}
+  .stamp p{font-size:10.5px;color:#C79C97;margin-top:1px;}
+
+  .groupFilterWrap{padding:10px 0;border-top:1px solid #481115;border-bottom:1px solid #481115;}
+  .groupFilterWrap label{font-size:10px;color:#C79C97;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:6px;}
+  .groupFilterWrap select{
+    width:100%;background:#3A0E12;color:#F6EDEB;border:1px solid #5A1B1F;border-radius:6px;padding:7px 8px;font-size:12.5px;
+  }
+
+  nav{display:flex;flex-direction:column;gap:2px;}
+  nav button{
+    all:unset;cursor:pointer;padding:9px 12px;border-radius:7px;font-size:13px;color:#D3B7B3;
+    font-weight:500;transition:background .15s,color .15s;
+  }
+  nav button:hover{background:#3E1013;color:#F6EDEB;}
+  nav button.active{background:var(--brand);color:#fff;}
+  .sidebar-foot{margin-top:auto;font-size:10.5px;color:#B3908B;line-height:1.6;border-top:1px solid #481115;padding-top:14px;}
+  .sidebar-foot .live{display:flex;align-items:center;gap:6px;margin-bottom:8px;color:#E39790;font-weight:600;font-size:11.5px;}
+  .pulse{width:6px;height:6px;border-radius:50%;background:#E39790;animation:pulse 1.8s infinite;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(227,151,144,.55)}70%{box-shadow:0 0 0 6px rgba(227,151,144,0)}100%{box-shadow:0 0 0 0 rgba(227,151,144,0)}}
+
+  /* ---------- Main ---------- */
+  main{flex:1;padding:32px 40px 60px;max-width:1140px;}
+  .eyebrow{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--brand);font-weight:700;margin-bottom:4px;}
+  .pagetitle{font-family:'Fraunces',serif;font-size:26px;font-weight:600;margin-bottom:22px;letter-spacing:-.01em;}
+
+  .tabpage{display:none;}
+  .tabpage.active{display:block;}
+
+  .kpiRow{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:26px;}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 17px;}
+  .kpi .lbl{font-size:11.5px;color:var(--soft);font-weight:600;margin-bottom:7px;}
+  .kpi .val{font-family:'IBM Plex Mono',monospace;font-size:23px;font-weight:600;}
+  .kpi .delta{font-size:11px;margin-top:5px;font-weight:600;}
+  .up{color:var(--green);} .down{color:var(--red);}
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin-bottom:20px;}
+  .panel h3{font-family:'Fraunces',serif;font-size:15px;font-weight:600;margin-bottom:14px;}
+
+  .grid2{display:grid;grid-template-columns:1.5fr 1fr;gap:16px;}
+
+  table.ledger{width:100%;border-collapse:collapse;font-size:13px;}
+  table.ledger th{
+    text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--soft);
+    padding:0 10px 10px;border-bottom:1.5px solid var(--line);cursor:pointer;user-select:none;white-space:nowrap;
+  }
+  table.ledger th:hover{color:var(--brand);}
+  table.ledger td{padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  table.ledger tr:last-child td{border-bottom:none;}
+  .tab{width:5px;height:22px;border-radius:3px;display:inline-block;margin-right:9px;vertical-align:middle;}
+  .shopname{font-weight:600;}
+  .catlabel{font-size:10.5px;color:var(--soft);}
+  .platpill{font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;}
+  .p-shopee{background:#FBF0DC;color:#9A6A1C;}
+  .p-tiktok{background:#E4EEEC;color:#215B54;}
+  .statuspill{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:99px;}
+  .s-ok{background:var(--green-soft);color:var(--green);}
+  .s-warn{background:#FBF0DC;color:#9A6A1C;}
+  .s-bad{background:var(--red-soft);color:var(--red);}
+  .roas-bad{color:var(--red);font-weight:600;}
+  .targetnote{font-size:10.5px;color:var(--soft);display:block;}
+  .grouppill{font-size:10px;color:var(--soft);background:var(--paper);border:1px solid var(--line);padding:2px 7px;border-radius:99px;}
+
+  .ruleRow, .logRow{display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--line);font-size:13px;gap:10px;}
+  .ruleRow:last-child, .logRow:last-child{border-bottom:none;}
+  .ruleRow .rname{font-weight:600;}
+  .ruleRow .rval{font-family:'IBM Plex Mono',monospace;color:var(--brand);font-weight:600;white-space:nowrap;}
+  .logRow .licon{margin-right:8px;}
+
+  .adsCard{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin-bottom:16px;}
+  .adsHead{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+  .adsHead .shopname{font-family:'Fraunces',serif;font-size:16px;}
+  .adsStats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+  .adsStat{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:10px 12px;}
+  .adsStat .l{font-size:10.5px;color:var(--soft);margin-bottom:4px;}
+  .adsStat .v{font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;}
+  .adsStat .v.low{color:var(--red);}
+  table.camp{width:100%;border-collapse:collapse;font-size:12.5px;}
+  table.camp th{text-align:left;font-size:10px;text-transform:uppercase;color:var(--soft);padding:0 8px 8px;border-bottom:1px solid var(--line);}
+  table.camp td{padding:8px 8px;border-bottom:1px solid var(--line);}
+  table.camp tr:last-child td{border-bottom:none;}
+  .campstatus{font-size:10px;font-weight:700;color:var(--green);}
+
+  .statusbanner{border-radius:9px;padding:13px 16px;font-size:13px;margin-bottom:18px;background:#FBF0DC;color:#8A5E17;border:1px solid #EFD9A6;}
+  .schema th, .schema td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:12.5px;}
+  .schema th{color:var(--soft);text-transform:uppercase;font-size:10.5px;letter-spacing:.05em;}
+
+  /* Settings tab */
+  .settingsRow{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);gap:10px;flex-wrap:wrap;}
+  .settingsRow:last-child{border-bottom:none;}
+  .settingsRow select, .settingsRow input{
+    border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12.5px;font-family:inherit;background:var(--paper);
+  }
+  .addForm{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);}
+  .addForm input, .addForm select{border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-size:12.5px;font-family:inherit;}
+  .btnBrand{background:var(--brand);color:#fff;border:none;border-radius:6px;padding:8px 14px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;}
+  .btnBrand:hover{background:var(--brand-dark);}
+  .noteBox{font-size:12px;color:var(--soft);line-height:1.7;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin-top:14px;}
+
+  @media(max-width:820px){
+    #app{flex-direction:column;}
+    #sidebar{width:100%;flex-direction:column;padding:14px 16px;}
+    nav{flex-direction:row;overflow-x:auto;}
+    main{padding:22px 18px 50px;}
+    .kpiRow{grid-template-columns:repeat(2,1fr);}
+    .grid2{grid-template-columns:1fr;}
+    .adsStats{grid-template-columns:repeat(2,1fr);}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <aside id="sidebar">
+    <div class="stamp">
+      <div class="logoBadge"><img src="logo.png" alt="2B TO HOME PLUS"></div>
+      <div>
+        <h1>2BTHP Pulse</h1>
+        <p>Operations Dashboard</p>
+      </div>
+    </div>
+
+    <div class="groupFilterWrap">
+      <label>กลุ่มร้านค้า</label>
+      <select id="groupFilter"></select>
+    </div>
+
+    <nav>
+      <button class="active" data-tab="overview">ภาพรวม</button>
+      <button data-tab="shops">ร้านค้าทั้งหมด</button>
+      <button data-tab="ads">โฆษณา</button>
+      <button data-tab="alerts">การแจ้งเตือน</button>
+      <button data-tab="settings">ตั้งค่ากลุ่ม</button>
+      <button data-tab="about">แหล่งข้อมูล</button>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="live"><span class="pulse"></span> <span id="sourceLabel">Sample data</span></div>
+      อัปเดตล่าสุด: <span id="lastUpdated">—</span>
+    </div>
+  </aside>
+
+  <main>
+
+    <!-- OVERVIEW -->
+    <section class="tabpage active" id="tab-overview">
+      <div class="eyebrow" id="overviewEyebrow">7 ร้าน · Shopee + TikTok Shop</div>
+      <div class="pagetitle">ภาพรวมวันนี้</div>
+
+      <div class="kpiRow">
+        <div class="kpi"><div class="lbl">GMV วันนี้ (รวม)</div><div class="val" id="kpiGmv">—</div><div class="delta up">▲ 12% จากเมื่อวาน</div></div>
+        <div class="kpi"><div class="lbl">ออเดอร์วันนี้</div><div class="val" id="kpiOrders">—</div><div class="delta up">▲ 8%</div></div>
+        <div class="kpi"><div class="lbl">ROAS เฉลี่ยรวม</div><div class="val" id="kpiRoas">—</div><div class="delta up">เทียบกับเป้าต่อร้าน</div></div>
+        <div class="kpi"><div class="lbl">ต้องตรวจสอบ</div><div class="val" id="kpiAlerts">—</div><div class="delta down">ร้านที่มีการแจ้งเตือน</div></div>
+      </div>
+
+      <div class="grid2">
+        <div class="panel">
+          <h3>เทรนด์ GMV รวม 7 วันล่าสุด</h3>
+          <canvas id="trendChart" height="140"></canvas>
+        </div>
+        <div class="panel">
+          <h3>ร้านที่ต้องดูก่อน</h3>
+          <div id="attentionList"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SHOPS -->
+    <section class="tabpage" id="tab-shops">
+      <div class="eyebrow">คลิกหัวตารางเพื่อเรียงลำดับ</div>
+      <div class="pagetitle">ร้านค้าทั้งหมด</div>
+      <div class="panel">
+        <table class="ledger" id="shopTable">
+          <thead>
+            <tr>
+              <th data-key="name">ร้าน</th>
+              <th data-key="platform">แพลตฟอร์ม</th>
+              <th data-key="gmv">GMV วันนี้</th>
+              <th data-key="orders">ออเดอร์</th>
+              <th data-key="roas">ROAS (เป้า)</th>
+              <th data-key="status">สถานะ</th>
+            </tr>
+          </thead>
+          <tbody id="shopTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ADS -->
+    <section class="tabpage" id="tab-ads">
+      <div class="eyebrow">เป้า ROAS ต่อร้าน · เครดิตคงเหลือ · แคมเปญที่กำลังทำงาน</div>
+      <div class="pagetitle">โฆษณา</div>
+      <div id="adsList"></div>
+    </section>
+
+    <!-- ALERTS -->
+    <section class="tabpage" id="tab-alerts">
+      <div class="eyebrow">เงื่อนไข 4 ข้อที่จะส่งแจ้งเตือนขึ้นมือถือ (LINE)</div>
+      <div class="pagetitle">การแจ้งเตือน</div>
+      <div class="grid2">
+        <div class="panel">
+          <h3>เงื่อนไขที่ตั้งไว้</h3>
+          <div class="ruleRow"><span class="rname">ROAS/ROI ต่ำกว่าเป้าเกิน 10%</span><span class="rval">&lt; เป้า×0.9</span></div>
+          <div class="ruleRow"><span class="rname">เครดิตโฆษณาใกล้หมด</span><span class="rval">&lt; ฿1,000</span></div>
+          <div class="ruleRow"><span class="rname">งบประมาณใกล้หมด</span><span class="rval">ใช้แล้ว &gt; 90%</span></div>
+          <div class="ruleRow"><span class="rname">ROAS/ROI เกินเป้า แต่งบหมด</span><span class="rval">โอกาสเพิ่มงบ</span></div>
+        </div>
+        <div class="panel">
+          <h3>รายการที่เข้าเงื่อนไขตอนนี้</h3>
+          <div id="alertLog"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="tabpage" id="tab-settings">
+      <div class="eyebrow">จัดกลุ่มร้านค้า สำหรับดูภาพรวมและ filter</div>
+      <div class="pagetitle">ตั้งค่ากลุ่มร้านค้า</div>
+
+      <div class="panel">
+        <h3>ร้านค้าและกลุ่มที่สังกัด</h3>
+        <div id="settingsShopList"></div>
+        <div class="addForm">
+          <input id="newShopName" placeholder="ชื่อร้านใหม่">
+          <select id="newShopPlatform"><option value="shopee">Shopee</option><option value="tiktok">TikTok</option></select>
+          <select id="newShopGroup"></select>
+          <button class="btnBrand" onclick="addShop()">+ เพิ่มร้านค้า</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>กลุ่มที่มีอยู่</h3>
+        <div id="groupList"></div>
+        <div class="addForm">
+          <input id="newGroupName" placeholder="ชื่อกลุ่มใหม่ เช่น ร้านตัวเอง / ร้านลูกค้า">
+          <button class="btnBrand" onclick="addGroup()">+ เพิ่มกลุ่ม</button>
+        </div>
+        <div class="noteBox">
+          หมายเหตุ: การเพิ่ม/แก้ไขในหน้านี้จะแสดงผลเฉพาะตอนเปิดหน้านี้อยู่เท่านั้น (รีเฟรชแล้วจะกลับไปค่าตั้งต้น)
+          เพราะไฟล์นี้เป็นหน้าเว็บสาธิตที่ไม่ได้ต่อฐานข้อมูลถาวร ถ้าต้องการให้การจัดกลุ่มบันทึกถาวรจริง แนะนำเพิ่มคอลัมน์ <code class="mono">group</code>
+          ใน Google Sheet ที่เชื่อมต่อไว้ (ดูหน้า "แหล่งข้อมูล") แล้วแก้ไขกลุ่มที่นั่นแทน
+        </div>
+      </div>
+    </section>
+
+    <!-- ABOUT / DATA SOURCE -->
+    <section class="tabpage" id="tab-about">
+      <div class="eyebrow">การเชื่อมต่อข้อมูล</div>
+      <div class="pagetitle">แหล่งข้อมูล</div>
+      <div class="statusbanner" id="aboutBanner"></div>
+      <div class="panel">
+        <h3>วิธีต่อข้อมูลจริง</h3>
+        <p style="font-size:13px;line-height:1.7;color:var(--ink)">
+          แก้ค่า <code class="mono">DATA_SOURCE_CSV_URL</code> ที่ต้นไฟล์ให้เป็นลิงก์ CSV ที่ publish จาก Google Sheet
+          (Google Sheet → File → Share → Publish to web → เลือกชีตที่ต้องการ → format CSV) แล้ว deploy ไฟล์ใหม่อีกครั้ง
+          หน้านี้จะดึงข้อมูลจากชีตนั้นแทนข้อมูลตัวอย่างโดยอัตโนมัติ
+        </p>
+        <p style="font-size:13px;line-height:1.7;color:var(--soft);margin-top:8px">
+          หมายเหตุ: ข้อมูลยอดขาย (GMV/ออเดอร์) มาจาก Shopee/TikTok Shop Open API ส่วนข้อมูลโฆษณา (เครดิตคงเหลือ, ค่าโฆษณา, แคมเปญ)
+          ต้องต่อ Shopee Ads API และ TikTok Marketing API เพิ่มต่างหาก เพราะเป็นคนละระบบกับ Order Information ที่เชื่อมไปแล้ว
+        </p>
+      </div>
+      <div class="panel">
+        <h3>โครงสร้างคอลัมน์ที่ต้องมีในชีต</h3>
+        <table class="schema" style="width:100%">
+          <thead><tr><th>คอลัมน์</th><th>ตัวอย่างค่า</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">shop</td><td>BBTOHOME88</td></tr>
+            <tr><td class="mono">platform</td><td>shopee หรือ tiktok</td></tr>
+            <tr><td class="mono">group</td><td>ร้านตัวเอง</td></tr>
+            <tr><td class="mono">gmv_today</td><td>18200</td></tr>
+            <tr><td class="mono">orders_today</td><td>142</td></tr>
+            <tr><td class="mono">roas</td><td>6.4</td></tr>
+            <tr><td class="mono">roas_target</td><td>6.0</td></tr>
+            <tr><td class="mono">ads_credit</td><td>4200</td></tr>
+            <tr><td class="mono">budget_today</td><td>1500</td></tr>
+            <tr><td class="mono">spend_today</td><td>1180</td></tr>
+            <tr><td class="mono">updated_at</td><td>2026-08-02 09:00</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+// ====================== CONFIG ======================
+const DATA_SOURCE_CSV_URL = '';
+
+const ALERT_THRESHOLDS = {
+  roasUnderPct: 0.10,     // ROAS ต่ำกว่าเป้าเกิน 10%
+  adsCreditLow: 1000,     // เครดิตโฆษณาใกล้หมด
+  budgetNearPct: 0.90,    // งบประมาณใกล้หมด (ใช้ไปแล้วเกิน 90%)
+  budgetDepletedPct: 0.95 // ถือว่างบ "หมด" เมื่อใช้ไปแล้วเกินสัดส่วนนี้
+};
+
+const CATEGORY_COLORS = {
+  'Home & Office': 'var(--brand)',
+  'Socks': 'var(--terra)',
+  'Kids': 'var(--ochre)',
+  'Stationery': 'var(--slate)',
+  "Women's Fashion": 'var(--plum)',
+  'Other': 'var(--neutral)'
+};
+
+let GROUPS = ['ร้านตัวเอง', 'ร้านลูกค้า'];
+
+let shops = [
+  {name:'BBTOHOME88', category:'Home & Office', platform:'shopee', group:'ร้านตัวเอง', gmv:18200, orders:142, roas:6.4, roasTarget:6.0,
+    adsCredit:4820, budgetToday:1500, spendToday:1180,
+    campaigns:[
+      {name:'ถังเก็บของอเนกประสงค์ [ชุด]', type:'สินค้าเดี่ยว', budget:180, spend:115.94, sales:577, roas:4.98, status:'กำลังโฆษณา'},
+      {name:'เลือกสินค้าโดยอัตโนมัติ', type:'อัตโนมัติ', budget:900, spend:612.30, sales:3980, roas:6.50, status:'กำลังโฆษณา'}
+    ]},
+  {name:'BBSOCK', category:'Socks', platform:'shopee', group:'ร้านตัวเอง', gmv:9800, orders:98, roas:4.2, roasTarget:5.0,
+    adsCredit:210, budgetToday:2000, spendToday:1449.24,
+    campaigns:[
+      {name:'ถุงเท้าข้อกลาง สีพาสเทล [2]', type:'สินค้าเดี่ยว', budget:180, spend:104.88, sales:449, roas:4.28, status:'กำลังโฆษณา'},
+      {name:'เลือกสินค้าโดยอัตโนมัติ', type:'อัตโนมัติ', budget:1820, spend:1344.36, sales:7955, roas:5.92, status:'กำลังโฆษณา'}
+    ]},
+  {name:'MATKIDS', category:'Kids', platform:'tiktok', group:'ร้านตัวเอง', gmv:14500, orders:76, roas:7.1, roasTarget:6.5,
+    adsCredit:6300, budgetToday:2500, spendToday:1449.24,
+    campaigns:[
+      {name:'Shop GMV Max', type:'GMV Max', budget:2500, spend:1449.24, sales:8404, roas:5.80, status:'Active'},
+      {name:'Live GMV Max', type:'Live GMV Max', budget:800, spend:612.10, sales:3920, roas:6.40, status:'Active'}
+    ]},
+  {name:'JUVITA', category:'Stationery', platform:'shopee', group:'ร้านตัวเอง', gmv:6300, orders:54, roas:5.5, roasTarget:5.5,
+    adsCredit:1450, budgetToday:600, spendToday:410.20,
+    campaigns:[
+      {name:'สมุดโน้ตลายการ์ตูน [ชุด]', type:'สินค้าเดี่ยว', budget:100, spend:64.10, sales:340, roas:5.30, status:'กำลังโฆษณา'},
+      {name:'เลือกสินค้าโดยอัตโนมัติ', type:'อัตโนมัติ', budget:500, spend:346.10, sales:1950, roas:5.63, status:'กำลังโฆษณา'}
+    ]},
+  {name:'JUNORIA', category:"Women's Fashion", platform:'tiktok', group:'ร้านลูกค้า', gmv:5100, orders:41, roas:5.9, roasTarget:5.5,
+    adsCredit:2870, budgetToday:720, spendToday:705.40,
+    campaigns:[
+      {name:'Shop GMV Max', type:'GMV Max', budget:720, spend:705.40, sales:4160, roas:5.90, status:'Active'}
+    ]},
+  {name:'GoodVibeZ', category:'Other', platform:'shopee', group:'ร้านลูกค้า', gmv:9900, orders:63, roas:6.0, roasTarget:6.0,
+    adsCredit:3320, budgetToday:700, spendToday:520.00,
+    campaigns:[
+      {name:'เลือกสินค้าโดยอัตโนมัติ', type:'อัตโนมัติ', budget:700, spend:520.00, sales:3120, roas:6.00, status:'กำลังโฆษณา'}
+    ]},
+  {name:'Minta88', category:'Other', platform:'tiktok', group:'ร้านลูกค้า', gmv:4620, orders:37, roas:5.3, roasTarget:5.0,
+    adsCredit:980, budgetToday:500, spendToday:372.10,
+    campaigns:[
+      {name:'Shop GMV Max', type:'GMV Max', budget:500, spend:372.10, sales:1970, roas:5.30, status:'Active'}
+    ]},
+];
+
+const TREND_LABELS = ['26 ก.ค.','27 ก.ค.','28 ก.ค.','29 ก.ค.','30 ก.ค.','31 ก.ค.','1 ส.ค.'];
+const TREND_DATA = [42000,48500,51000,47000,60000,72000,68420];
+
+let sortKey = 'gmv';
+let sortDir = 'desc';
+let currentGroupFilter = 'all';
+
+// ---------- alert rule engine ----------
+function computeAlerts(list){
+  const out = [];
+  list.forEach(x=>{
+    const spendPct = x.budgetToday ? (x.spendToday / x.budgetToday) : 0;
+    if (x.roas < x.roasTarget * (1 - ALERT_THRESHOLDS.roasUnderPct)){
+      out.push({shop:x.name, icon:'🔴', text:`${x.name} — ROAS ${x.roas.toFixed(1)}x ต่ำกว่าเป้า ${x.roasTarget.toFixed(1)}x เกิน 10%`});
+    }
+    if (x.adsCredit < ALERT_THRESHOLDS.adsCreditLow){
+      out.push({shop:x.name, icon:'🟠', text:`${x.name} — เครดิตโฆษณาใกล้หมด (฿${x.adsCredit.toLocaleString()})`});
+    }
+    if (spendPct > ALERT_THRESHOLDS.budgetNearPct && spendPct < ALERT_THRESHOLDS.budgetDepletedPct){
+      out.push({shop:x.name, icon:'🟡', text:`${x.name} — งบประมาณใกล้หมด (ใช้ไป ${Math.round(spendPct*100)}%)`});
+    }
+    if (x.roas >= x.roasTarget && spendPct >= ALERT_THRESHOLDS.budgetDepletedPct){
+      out.push({shop:x.name, icon:'🟢', text:`${x.name} — ROAS ${x.roas.toFixed(1)}x เกินเป้าแต่งบหมดแล้ว ลองเพิ่มงบเพื่อขายได้มากขึ้น`});
+    }
+  });
+  return out;
+}
+
+// ---------- filtering ----------
+function getFilteredShops(){
+  if (currentGroupFilter === 'all') return shops;
+  return shops.filter(s => s.group === currentGroupFilter);
+}
+
+function refreshGroupSelectors(){
+  const filterSel = document.getElementById('groupFilter');
+  const opts = ['<option value="all">ทั้งหมด (' + shops.length + ' ร้าน)</option>']
+    .concat(GROUPS.map(g => `<option value="${g}">${g} (${shops.filter(s=>s.group===g).length})</option>`));
+  filterSel.innerHTML = opts.join('');
+  filterSel.value = currentGroupFilter;
+
+  const newShopGroupSel = document.getElementById('newShopGroup');
+  if (newShopGroupSel) newShopGroupSel.innerHTML = GROUPS.map(g => `<option value="${g}">${g}</option>`).join('');
+}
+
+document.getElementById('groupFilter').addEventListener('change', e=>{
+  currentGroupFilter = e.target.value;
+  render();
+});
+
+document.querySelectorAll('nav button').forEach(btn=>{
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tabpage').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ---------- data load ----------
+function init(){
+  if (DATA_SOURCE_CSV_URL) {
+    Papa.parse(DATA_SOURCE_CSV_URL, {
+      download: true, header: true,
+      complete: res => {
+        try {
+          shops = res.data.filter(r => r.shop).map(r => ({
+            name: r.shop, category: r.category || 'Other', platform: (r.platform || '').toLowerCase(),
+            group: r.group || 'ร้านตัวเอง',
+            gmv: Number(r.gmv_today) || 0, orders: Number(r.orders_today) || 0,
+            roas: Number(r.roas) || 0, roasTarget: Number(r.roas_target) || 5,
+            adsCredit: Number(r.ads_credit) || 0,
+            budgetToday: Number(r.budget_today) || 0, spendToday: Number(r.spend_today) || 0,
+            campaigns: []
+          }));
+          GROUPS = [...new Set(shops.map(s=>s.group))];
+          document.getElementById('sourceLabel').textContent = 'เชื่อมต่อสด (Google Sheet)';
+          render();
+        } catch(err){ fallbackToSample(); }
+      },
+      error: () => fallbackToSample()
+    });
+  } else {
+    fallbackToSample();
+  }
+}
+function fallbackToSample(){
+  document.getElementById('sourceLabel').textContent = 'ข้อมูลตัวอย่าง (ยังไม่เชื่อมต่อ)';
+  render();
+}
+
+function render(){
+  document.getElementById('lastUpdated').textContent = new Date().toLocaleString('th-TH', {hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit'});
+  refreshGroupSelectors();
+  const filtered = getFilteredShops();
+  document.getElementById('overviewEyebrow').textContent = filtered.length + ' ร้าน · Shopee + TikTok Shop' + (currentGroupFilter!=='all' ? ' · กลุ่ม: ' + currentGroupFilter : '');
+  renderKpis(filtered);
+  renderChart();
+  renderAttention(filtered);
+  renderTable(filtered);
+  renderAds(filtered);
+  renderAlertsTab(filtered);
+  renderSettings();
+  renderAbout();
+}
+
+function renderKpis(list){
+  const totalGmv = list.reduce((s,x)=>s+x.gmv,0);
+  const totalOrders = list.reduce((s,x)=>s+x.orders,0);
+  const avgRoas = list.length ? (list.reduce((s,x)=>s+x.roas,0)/list.length) : 0;
+  const alerts = computeAlerts(list);
+  const alertShopCount = new Set(alerts.map(a=>a.shop)).size;
+  document.getElementById('kpiGmv').textContent = '฿' + totalGmv.toLocaleString();
+  document.getElementById('kpiOrders').textContent = totalOrders.toLocaleString();
+  document.getElementById('kpiRoas').textContent = avgRoas.toFixed(1) + 'x';
+  document.getElementById('kpiAlerts').textContent = alertShopCount;
+}
+
+function renderAttention(list){
+  const el = document.getElementById('attentionList');
+  const flagged = list.filter(x=>x.roas < x.roasTarget).sort((a,b)=>(a.roas-a.roasTarget)-(b.roas-b.roasTarget));
+  if (flagged.length === 0){
+    el.innerHTML = '<div style="font-size:13px;color:var(--soft)">ไม่มีร้านที่ต้องรีบดูตอนนี้ 🎉</div>';
+    return;
+  }
+  el.innerHTML = flagged.map(x => `
+    <div class="logRow">
+      <span><span class="tab" style="background:${CATEGORY_COLORS[x.category]||CATEGORY_COLORS.Other}"></span>${x.name}</span>
+      <span class="roas-bad mono">${x.roas.toFixed(1)}x <span style="color:var(--soft);font-weight:400">/ เป้า ${x.roasTarget.toFixed(1)}x</span></span>
+    </div>`).join('');
+}
+
+function renderTable(list){
+  const sorted = [...list].sort((a,b)=>{
+    let av=a[sortKey], bv=b[sortKey];
+    if (typeof av === 'string'){ av=av.toLowerCase(); bv=bv.toLowerCase(); }
+    if (av < bv) return sortDir==='asc' ? -1 : 1;
+    if (av > bv) return sortDir==='asc' ? 1 : -1;
+    return 0;
+  });
+  document.getElementById('shopTableBody').innerHTML = sorted.map(x => {
+    const status = x.roas < x.roasTarget ? {c:'s-bad', t:'ต่ำกว่าเป้า'} : (x.roas < x.roasTarget*1.1 ? {c:'s-warn', t:'ใกล้เป้า'} : {c:'s-ok', t:'ดี'});
+    return `
+    <tr>
+      <td><span class="tab" style="background:${CATEGORY_COLORS[x.category]||CATEGORY_COLORS.Other}"></span>
+          <span class="shopname">${x.name}</span> <span class="grouppill">${x.group}</span><br><span class="catlabel">${x.category}</span></td>
+      <td><span class="platpill ${x.platform==='shopee'?'p-shopee':'p-tiktok'}">${x.platform==='shopee'?'Shopee':'TikTok'}</span></td>
+      <td class="mono">฿${x.gmv.toLocaleString()}</td>
+      <td class="mono">${x.orders}</td>
+      <td class="mono ${x.roas<x.roasTarget?'roas-bad':''}">${x.roas.toFixed(1)}x<span class="targetnote">เป้า ${x.roasTarget.toFixed(1)}x</span></td>
+      <td><span class="statuspill ${status.c}">${status.t}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+document.querySelectorAll('#shopTable th').forEach(th=>{
+  th.addEventListener('click', () => {
+    const key = th.dataset.key;
+    if (sortKey === key) { sortDir = sortDir==='asc' ? 'desc' : 'asc'; }
+    else { sortKey = key; sortDir = 'desc'; }
+    renderTable(getFilteredShops());
+  });
+});
+
+function renderAds(list){
+  const el = document.getElementById('adsList');
+  el.innerHTML = list.map(x => `
+    <div class="adsCard">
+      <div class="adsHead">
+        <div>
+          <span class="tab" style="background:${CATEGORY_COLORS[x.category]||CATEGORY_COLORS.Other}"></span>
+          <span class="shopname">${x.name}</span>
+          <span class="platpill ${x.platform==='shopee'?'p-shopee':'p-tiktok'}" style="margin-left:8px">${x.platform==='shopee'?'Shopee':'TikTok'}</span>
+          <span class="grouppill" style="margin-left:6px">${x.group}</span>
+        </div>
+      </div>
+      <div class="adsStats">
+        <div class="adsStat"><div class="l">ROAS วันนี้ / เป้า</div><div class="v ${x.roas<x.roasTarget?'low':''}">${x.roas.toFixed(1)}x / ${x.roasTarget.toFixed(1)}x</div></div>
+        <div class="adsStat"><div class="l">เครดิตคงเหลือ</div><div class="v ${x.adsCredit<ALERT_THRESHOLDS.adsCreditLow?'low':''}">฿${x.adsCredit.toLocaleString()}</div></div>
+        <div class="adsStat"><div class="l">งบวันนี้</div><div class="v">฿${x.budgetToday.toLocaleString()}</div></div>
+        <div class="adsStat"><div class="l">ใช้ไปแล้ววันนี้</div><div class="v">฿${x.spendToday.toLocaleString()}</div></div>
+      </div>
+      <table class="camp">
+        <thead><tr><th>แคมเปญ / สินค้า</th><th>ประเภท</th><th>งบ</th><th>ค่าโฆษณา</th><th>ยอดขาย</th><th>ROAS</th><th>สถานะ</th></tr></thead>
+        <tbody>
+          ${x.campaigns.map(c => `
+            <tr>
+              <td>${c.name}</td>
+              <td style="color:var(--soft)">${c.type}</td>
+              <td class="mono">฿${c.budget.toLocaleString()}</td>
+              <td class="mono">฿${c.spend.toLocaleString()}</td>
+              <td class="mono">฿${c.sales.toLocaleString()}</td>
+              <td class="mono ${c.roas<x.roasTarget?'roas-bad':''}">${c.roas.toFixed(2)}x</td>
+              <td class="campstatus">${c.status}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  `).join('');
+}
+
+function renderAlertsTab(list){
+  const el = document.getElementById('alertLog');
+  const alerts = computeAlerts(list);
+  if (alerts.length === 0){
+    el.innerHTML = '<div style="font-size:13px;color:var(--soft)">ไม่มีรายการที่เข้าเงื่อนไขตอนนี้ 🎉</div>';
+    return;
+  }
+  el.innerHTML = alerts.map(a => `
+    <div class="logRow"><span><span class="licon">${a.icon}</span>${a.text}</span></div>
+  `).join('');
+}
+
+// ---------- settings tab ----------
+function renderSettings(){
+  const el = document.getElementById('settingsShopList');
+  el.innerHTML = shops.map((x,i) => `
+    <div class="settingsRow">
+      <span><span class="tab" style="background:${CATEGORY_COLORS[x.category]||CATEGORY_COLORS.Other}"></span>${x.name}
+        <span class="platpill ${x.platform==='shopee'?'p-shopee':'p-tiktok'}" style="margin-left:6px">${x.platform==='shopee'?'Shopee':'TikTok'}</span></span>
+      <select onchange="setShopGroup(${i}, this.value)">
+        ${GROUPS.map(g => `<option value="${g}" ${g===x.group?'selected':''}>${g}</option>`).join('')}
+      </select>
+    </div>
+  `).join('');
+
+  const gl = document.getElementById('groupList');
+  gl.innerHTML = GROUPS.map(g => `
+    <div class="settingsRow"><span>${g}</span><span class="grouppill">${shops.filter(s=>s.group===g).length} ร้าน</span></div>
+  `).join('');
+}
+
+function setShopGroup(idx, group){
+  shops[idx].group = group;
+  render();
+}
+
+function addShop(){
+  const name = document.getElementById('newShopName').value.trim();
+  const platform = document.getElementById('newShopPlatform').value;
+  const group = document.getElementById('newShopGroup').value;
+  if (!name) return;
+  shops.push({
+    name, category:'Other', platform, group,
+    gmv:0, orders:0, roas:0, roasTarget:5,
+    adsCredit:0, budgetToday:0, spendToday:0, campaigns:[]
+  });
+  document.getElementById('newShopName').value = '';
+  render();
+}
+
+function addGroup(){
+  const name = document.getElementById('newGroupName').value.trim();
+  if (!name || GROUPS.includes(name)) return;
+  GROUPS.push(name);
+  document.getElementById('newGroupName').value = '';
+  render();
+}
+
+function renderAbout(){
+  const el = document.getElementById('aboutBanner');
+  if (DATA_SOURCE_CSV_URL){
+    el.style.background = '#F0E1DF'; el.style.color = 'var(--brand-dark)'; el.style.borderColor = '#DDB9B5';
+    el.textContent = 'เชื่อมต่อกับ Google Sheet แล้ว — ข้อมูลยอดขายที่เห็นเป็นข้อมูลจริงจากชีตที่ตั้งค่าไว้';
+  } else {
+    el.textContent = 'ยังไม่ได้เชื่อมต่อ — หน้านี้กำลังแสดงข้อมูลตัวอย่างเพื่อสาธิตการทำงาน ดูวิธีเชื่อมต่อด้านล่าง';
+  }
+}
+
+let chartInstance = null;
+function renderChart(){
+  const ctx = document.getElementById('trendChart');
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: TREND_LABELS,
+      datasets: [{
+        label: 'GMV รวม (บาท)', data: TREND_DATA,
+        borderColor: '#84121A', backgroundColor: 'rgba(132,18,26,0.10)',
+        borderWidth: 2.5, tension: 0.35, fill: true, pointRadius: 3, pointBackgroundColor: '#84121A',
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { callback: v => '฿' + v.toLocaleString() }, grid: { color: '#EAE1DD' } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+}
+
+init();
+</script>
+</body>
+</html>
